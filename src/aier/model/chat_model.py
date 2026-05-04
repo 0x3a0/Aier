@@ -52,9 +52,6 @@ class ChatModel():
             **self.kwargs
         )
 
-        # 用于组装 tool call 的 buffer
-        tool_call_buffers: dict[str, dict[str, str]] = {}
-
         for chunk in resp:
             print(chunk)
             delta = chunk.choices[0].delta
