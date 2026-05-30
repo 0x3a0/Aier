@@ -1,15 +1,14 @@
 from os import getenv
-from dotenv import load_dotenv
 
-load_dotenv()
+from openai import OpenAI
 
-from .model import OpenAI, ChatModel
-from .model.types import Message, LLMResponseChunk
+from aier.ai.providers.openai import OpenAIModel
+from aier.ai.types import Message
 
 
 client = OpenAI(api_key=getenv("DEEPSEEK_API_KEY"), base_url=getenv("DEEPSEEK_BASE_URL"))
 
-chat_model = ChatModel(
+chat_model = OpenAIModel(
     model_name="deepseek-v4-flash",
     temperature=0.8,
     openai_client=client
