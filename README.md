@@ -1,16 +1,5 @@
 # Aier - 开箱即用的 Agent Framework
+框架分为两个模块
 
-## 待办事项
-
-- [x] 修改tool加载方式 - 手动传入更准确的 tool schema
-- [x] 将 llm client 从 model 中分离
-- [x] API响应默认流式处理
-- [ ] BaseAgent - 实现基础的 agent
-- [ ] ReActAgent - 实现 ReAct 架构的 agent
-- [ ] PlanAndSolveAgent - 实现 PlanAndSolve 架构的 agent, 将任务拆解为多个子任务按步骤执行，给模型一个显示、稳定、可反复更新的计划状态
-- [ ] Memory System
-    - [ ] Short Term Memory - 将短期记忆拆分成一个单独的模块，按需加载
-    - [ ] Long Term Memory - 将长期记忆拆分成一个单独的模块，按需加载
-- [ ] Skill System
-- [ ] Context Engineering
-    - [ ] 上下文压缩
+1. aier-ai: LLM API 提供商的抽象层，屏蔽不同 provider 之间的结构差异
+2. aier-agent: 提供状态管理的 agent 运行时
