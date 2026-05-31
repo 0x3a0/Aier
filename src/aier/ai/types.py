@@ -1,29 +1,32 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 from typing import Literal
 
 
-@dataclass
-class Message:
-    role: Literal["system", "user", "assistant", "tool"]
-    content: str
+class TextContent(BaseModel):
+    type: Literal["text"] = "text"
+    text: str
 
-    def to_openai_message(self) -> dict[str, str]:
-        return {
-            "role": self.role,
-            "content": self.content,
-        }
+class ThinkingContent(BaseModel):
+    type: Literal["thinking"] = "thinking"
+    thinking: str
 
+class SystemMessage(BaseModel):
+    pass
 
-@dataclass
-class LLMResponseChunk:
-    content: str = ""
-    reasoning_content: str = ""
-    model: str = ""
+class UserMessage(BaseModel):
+    role: Literal["user"] = "user"
+    content: TextContent
 
+class AssistantMessage(BaseModel):
+    role: Literal["assistant"] = "assistant"
+    content: list[TextContent]
 
-@dataclass
-class StreamEnd:
-    finish_reason: str
-    completion_tokens: int = 0
-    prompt_tokens: int = 0
-    total_tokens: int = 0
+class ToolResultMessage(BaseModel):
+    role: Literal["tool"] = "tool"
+    tool_call_id: str
+    content: TextContent
+
+class StreamStart(BaseModel):
+    type: Literal["stream_start"] = "stream_start"
+    message_id: str
+
