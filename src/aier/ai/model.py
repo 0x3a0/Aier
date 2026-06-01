@@ -1,9 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator
 
-from .types import (
-    Message,
-)
+from .types import AssistantMessageEvent, Message
 
 
 class BaseModel(ABC):
@@ -12,9 +9,7 @@ class BaseModel(ABC):
     @abstractmethod
     def stream_invoke(
         self,
-        messages: list[Message],
-        *,
-        tools: Optional[list] = None,
-    ) -> Iterator[Message]:
+        messages: list[Message]
+    ) -> AssistantMessageEvent:
         """ 流式输出模型调用结果 """
         ...
