@@ -1,5 +1,5 @@
+from typing import Literal, Union
 from pydantic import BaseModel
-from typing import Literal
 
 
 class TextContent(BaseModel):
@@ -10,22 +10,21 @@ class ThinkingContent(BaseModel):
     type: Literal["thinking"] = "thinking"
     thinking: str
 
+class ToolCall(BaseModel):
+    type: Literal["tool_call"] = "tool_call"
+
 class Usage(BaseModel):
     input: int
     output: int
     total_tokens: int
 
-class SystemMessage(BaseModel):
-    role: Literal["system"] = "system"
-    content: str
-
 class UserMessage(BaseModel):
     role: Literal["user"] = "user"
-    content: str | TextContent
+    content: str
 
 class AssistantMessage(BaseModel):
     role: Literal["assistant"] = "assistant"
-    content: list[TextContent]
+    content: list[Union[TextContent, ThinkingContent]]      # LLM返回的信息会包含多种可能，例如：content、reasoning_content、tool_call 等
     provider: str
     model: str
     response_id: str
@@ -38,7 +37,11 @@ class ToolResultMessage(BaseModel):
     tool_call_id: str
     content: TextContent
 
-Message = SystemMessage | UserMessage | AssistantMessage | ToolResultMessage
+Message = UserMessage | AssistantMessage | ToolResultMessage
+
+class Context(BaseModel):
+    system_prompt: str = ""
+    messages: list[Message]
 
 class StartEvent(BaseModel):
     type: Literal["start_event"] = "start_event"
