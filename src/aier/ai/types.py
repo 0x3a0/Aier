@@ -1,4 +1,4 @@
-from typing import Literal, Union
+from typing import Literal, Union, Optional
 from pydantic import BaseModel
 
 
@@ -25,7 +25,7 @@ class UserMessage(BaseModel):
 class AssistantMessage(BaseModel):
     role: Literal["assistant"] = "assistant"
     content: list[Union[TextContent, ThinkingContent]]      # LLM返回的信息会包含多种可能，例如：content、reasoning_content、tool_call 等
-    provider: str
+    provider: Optional[str] = None
     model: str
     response_id: str
     usage: Usage
