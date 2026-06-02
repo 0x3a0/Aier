@@ -17,7 +17,7 @@ class Usage(BaseModel):
 
 class SystemMessage(BaseModel):
     role: Literal["system"] = "system"
-    content: str | TextContent
+    content: str
 
 class UserMessage(BaseModel):
     role: Literal["user"] = "user"
