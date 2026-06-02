@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 from ..types import (
-    AssistantMessageEvent, AssistantMessage, Message,
-    Context
+    AssistantMessageEvent, AssistantMessage, Context
 )
 
 
