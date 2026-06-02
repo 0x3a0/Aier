@@ -16,11 +16,12 @@ class Usage(BaseModel):
     total_tokens: int
 
 class SystemMessage(BaseModel):
-    pass
+    role: Literal["system"] = "system"
+    content: str | TextContent
 
 class UserMessage(BaseModel):
     role: Literal["user"] = "user"
-    content: TextContent
+    content: str | TextContent
 
 class AssistantMessage(BaseModel):
     role: Literal["assistant"] = "assistant"
