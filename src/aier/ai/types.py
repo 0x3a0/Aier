@@ -40,11 +40,15 @@ class ToolResultMessage(BaseModel):
 Message = UserMessage | AssistantMessage | ToolResultMessage
 
 class Context(BaseModel):
-    system_prompt: str = ""
+    system_prompt: Optional[str] = None
     messages: list[Message]
 
 class StartEvent(BaseModel):
     type: Literal["start_event"] = "start_event"
+    portion: AssistantMessage
+
+class ThinkingStartEvent(BaseModel):
+    type: Literal["thinking_start"] = "thinking_start"
     portion: AssistantMessage
 
 class ThinkingDeltaEvent(BaseModel):
@@ -54,6 +58,7 @@ class ThinkingDeltaEvent(BaseModel):
 
 class ThinkingEndEvent(BaseModel):
     type: Literal["thinking_end"] = "thinking_end"
+    content: str
     portion: AssistantMessage
 
 AssistantMessageEvent = StartEvent | ThinkingDeltaEvent | ThinkingEndEvent
