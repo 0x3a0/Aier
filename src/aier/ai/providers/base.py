@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
+from typing import Union
 
-from ..types import AssistantMessageEvent, Message
+from ..types import (
+    AssistantMessageEvent, AssistantMessage, Message,
+    Context
+)
 
 
 class LLMModel(ABC):
@@ -9,7 +13,7 @@ class LLMModel(ABC):
     @abstractmethod
     def stream_invoke(
         self,
-        context: list[Message]
-    ) -> AssistantMessageEvent:
+        context: Context,
+    ) -> Union[AssistantMessageEvent, AssistantMessage]:
         """ 流式输出模型调用结果 """
         ...
