@@ -46,7 +46,7 @@ for chunk in model.stream_invoke(context):
 
 ## Todos
 
-- [] 封装工具定义抽象
+- [ ] 封装工具定义抽象
 
 ## License
 
