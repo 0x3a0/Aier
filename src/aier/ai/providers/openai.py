@@ -1,3 +1,4 @@
+from tkinter import Text
 from typing import Union
 
 from openai import OpenAI
@@ -5,8 +6,9 @@ from openai import OpenAI
 from .base import LLMModel
 from ..types import (
     TextContent, ThinkingContent,
-    AssistantMessageEvent, StartEvent,
+    AssistantMessageEvent, StartEvent, EndEvent,
     ThinkingStartEvent, ThinkingDeltaEvent, ThinkingEndEvent,
+    TextStartEvent, TextDeltaEvent, TextEndEvent,
     AssistantMessage, Message,
     Context, Usage
 )
@@ -43,7 +45,7 @@ class OpenAIModel(LLMModel):
         self,
         context: Context,
     ) -> Union[AssistantMessageEvent, AssistantMessage]:
-        """ 流式输出模型调用结果 """
+        """ 流式输出模型的结果 """
         llm_output: AssistantMessage = AssistantMessage(
             role="assistant",
             content=[],
@@ -101,3 +103,21 @@ class OpenAIModel(LLMModel):
                 thinking_block = None
 
             text_content = getattr(delta, "content", None)
+            if text_content:
+                if text_block is None:
+                    text_block = TextContent(text="")
+                    llm_output.content.append(text_block)
+                    yield TextStartEvent(portion=llm_output)
+
+                text_block.text += text_content
+                yield TextDeltaEvent(delta=text_content, portion=llm_output)
+
+            # 当 text_content 为空字符串，且 finish_reason="stop" 时，说明模型完成生成
+            finish_signal = getattr(chunk.choices[0], "finish_reason", None)
+            if finish_signal == "stop":
+                if not text_content and text_block is not None:
+                    yield TextEndEvent(content=text_block.text, portion=llm_output)
+                    text_block = None
+                
+                if llm_output.finish_reason == finish_signal:
+                    yield EndEvent(finish_reason=finish_signal, portion=llm_output)

@@ -61,5 +61,24 @@ class ThinkingEndEvent(BaseModel):
     content: str
     portion: AssistantMessage
 
-AssistantMessageEvent = StartEvent | ThinkingDeltaEvent | ThinkingEndEvent
+class TextStartEvent(BaseModel):
+    type: Literal["text_start"] = "text_start"
+    portion: AssistantMessage
+
+class TextDeltaEvent(BaseModel):
+    type: Literal["text_delta"] = "text_delta"
+    delta: str
+    portion: AssistantMessage
+
+class TextEndEvent(BaseModel):
+    type: Literal["text_end"] = "text_end"
+    content: str
+    portion: AssistantMessage
+
+class EndEvent(BaseModel):
+    type: Literal["end_event"] = "end_event"
+    finish_reason: Literal["stop"]
+    portion: AssistantMessage
+
+AssistantMessageEvent = StartEvent | ThinkingDeltaEvent | ThinkingEndEvent | TextStartEvent | TextDeltaEvent | TextEndEvent | EndEvent
 
