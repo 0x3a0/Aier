@@ -2,6 +2,8 @@ from typing import Literal, Union, Optional
 from pydantic import BaseModel
 
 
+BaseModel.__str__ = BaseModel.__repr__
+
 class TextContent(BaseModel):
     type: Literal["text"] = "text"
     text: str
