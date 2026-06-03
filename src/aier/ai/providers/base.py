@@ -13,6 +13,13 @@ class LLMModel(ABC):
     def stream_invoke(
         self,
         context: Context,
-    ) -> Union[AssistantMessageEvent, AssistantMessage]:
-        """ 流式输出模型调用结果 """
+    ) -> AssistantMessageEvent:
+        """ 流式输出 """
         ...
+
+    def complete(
+        self,
+        context: Context
+    ) -> AssistantMessage:
+        """ 同步输出 """
+        pass

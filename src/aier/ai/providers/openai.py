@@ -44,8 +44,8 @@ class OpenAIModel(LLMModel):
     def stream_invoke(
         self,
         context: Context,
-    ) -> Union[AssistantMessageEvent, AssistantMessage]:
-        """ 流式输出模型的结果 """
+    ) -> AssistantMessageEvent:
+        """ 流式输出 """
         llm_output: AssistantMessage = AssistantMessage(
             role="assistant",
             content=[],
