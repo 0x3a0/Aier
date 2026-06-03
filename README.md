@@ -1,6 +1,45 @@
 # Aier - 一个开箱即用的 Agent Framework
+
 > 该框架是在学习 Agent 的过程中开发的，仅对一些常用的功能进行封装，很多功能并不完善。
 
 主要分为两个部分：
+
 - [aier-ai](https://github.com/0x3a0/Aier/tree/main/src/aier/ai)：LLM API(OpenAI, Anthropic, Google...) 的抽象层，屏蔽不同大模型供应商之间的结构差异
 - [aier-agent](https://github.com/0x3a0/Aier/tree/main/src/aier/agent)：具备状态管理、长短期记忆、工具调用等功能的 Agent 运行环境
+
+## 所支持的 LLM API 格式
+
+- OpenAI
+- 未来会补充 Anthropic、Google 等 API 格式
+
+## 快速入门
+
+### 调用模型对话
+
+```python
+from aier.ai import get_model, UserMessage, Context
+
+model = get_model("openai", "glm-4.7-flash", getenv("ZP_API_KEY"), getenv("ZP_BASE_URL"))
+context = Context(
+    messages=[
+        UserMessage(content="你是谁")
+    ]
+)
+for chunk in model.stream_invoke(context):
+    print(chunk)
+```
+
+框架底层默认为流式输出，对话的过程中会不断发出 stream event 事件，可以在[事件类型](#事件类型)中查看所有的事件类型。
+
+### 事件类型
+
+| 事件名称 | 描述 | 事件标识 | 属性 |
+| --- | --- | --- | --- |
+| `StartEvent` | 流式对话开始 | `start_event` | `portion`: `AssistantMessage` |
+| `ThinkingStartEvent` | 思考开始 | `thinking_start` | `portion`: `AssistantMessage` |
+| `ThinkingDeltaEvent` | 思考内容增量 | `thinking_delta` | `delta`: `str`<br>`portion`: `AssistantMessage` |
+| `ThinkingEndEvent` | 思考结束 | `thinking_end` | `content`: `str`<br>`portion`: `AssistantMessage` |
+| `TextStartEvent` | 文本生成开始 | `text_start` | `portion`: `AssistantMessage` |
+| `TextDeltaEvent` | 文本内容增量 | `text_delta` | `delta`: `str`<br>`portion`: `AssistantMessage` |
+| `TextEndEvent` | 文本生成结束 | `text_end` | `content`: `str`<br>`portion`: `AssistantMessage` |
+| `EndEvent` | 流式对话结束 | `end_event` | `finish_reason`: `"stop"`<br>`portion`: `AssistantMessage` |
