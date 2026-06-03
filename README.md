@@ -35,11 +35,11 @@ for chunk in model.stream_invoke(context):
 
 | 事件名称 | 描述 | 事件标识 | 属性 |
 | --- | --- | --- | --- |
-| `StartEvent` | 流式对话开始 | `start_event` | `portion`: `AssistantMessage` |
+| `StreamStartEvent` | 流式对话开始 | `stream_start` | `portion`: `AssistantMessage` |
 | `ThinkingStartEvent` | 思考开始 | `thinking_start` | `portion`: `AssistantMessage` |
 | `ThinkingDeltaEvent` | 思考内容增量 | `thinking_delta` | `delta`: `str`<br>`portion`: `AssistantMessage` |
 | `ThinkingEndEvent` | 思考结束 | `thinking_end` | `content`: `str`<br>`portion`: `AssistantMessage` |
 | `TextStartEvent` | 文本生成开始 | `text_start` | `portion`: `AssistantMessage` |
 | `TextDeltaEvent` | 文本内容增量 | `text_delta` | `delta`: `str`<br>`portion`: `AssistantMessage` |
 | `TextEndEvent` | 文本生成结束 | `text_end` | `content`: `str`<br>`portion`: `AssistantMessage` |
-| `EndEvent` | 流式对话结束 | `end_event` | `finish_reason`: `"stop"`<br>`portion`: `AssistantMessage` |
+| `StreamEndEvent` | 流式对话结束 | `stream_end` | `finish_reason`: `"stop"`<br>`portion`: `AssistantMessage` |
