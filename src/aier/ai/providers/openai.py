@@ -120,4 +120,8 @@ class OpenAIModel(LLMModel):
                     text_block = None
                 
                 if llm_output.finish_reason == finish_signal:
+                    llm_usage = chunk.usage
+                    llm_output.usage.input = llm_usage.prompt_tokens
+                    llm_output.usage.output = llm_usage.completion_tokens
+                    llm_output.usage.total_tokens = llm_usage.total_tokens
                     yield EndEvent(finish_reason=finish_signal, portion=llm_output)
