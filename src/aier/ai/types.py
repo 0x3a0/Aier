@@ -45,8 +45,8 @@ class Context(BaseModel):
     system_prompt: Optional[str] = None
     messages: list[Message]
 
-class StartEvent(BaseModel):
-    type: Literal["start_event"] = "start_event"
+class StreamStartEvent(BaseModel):
+    type: Literal["stream_start"] = "stream_start"
     portion: AssistantMessage
 
 class ThinkingStartEvent(BaseModel):
@@ -77,10 +77,10 @@ class TextEndEvent(BaseModel):
     content: str
     portion: AssistantMessage
 
-class EndEvent(BaseModel):
-    type: Literal["end_event"] = "end_event"
+class StreamEndEvent(BaseModel):
+    type: Literal["stream_end"] = "stream_end"
     finish_reason: Literal["stop"]
     portion: AssistantMessage
 
-AssistantMessageEvent = StartEvent | ThinkingDeltaEvent | ThinkingEndEvent | TextStartEvent | TextDeltaEvent | TextEndEvent | EndEvent
+AssistantMessageEvent = StreamStartEvent | ThinkingDeltaEvent | ThinkingEndEvent | TextStartEvent | TextDeltaEvent | TextEndEvent | StreamEndEvent
 

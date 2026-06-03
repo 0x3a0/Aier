@@ -6,7 +6,7 @@ from openai import OpenAI
 from .base import LLMModel
 from ..types import (
     TextContent, ThinkingContent,
-    AssistantMessageEvent, StartEvent, EndEvent,
+    AssistantMessageEvent, StreamStartEvent, StreamEndEvent,
     ThinkingStartEvent, ThinkingDeltaEvent, ThinkingEndEvent,
     TextStartEvent, TextDeltaEvent, TextEndEvent,
     AssistantMessage, Message,
@@ -78,14 +78,15 @@ class OpenAIModel(LLMModel):
             }
         )
 
-        yield StartEvent(portion=llm_output)
-
         thinking_block: Optional[ThinkingContent] = None
         text_block: Optional[TextContent] = None
 
         for chunk in stream:
             llm_output.response_id = chunk.id
             llm_output.create_timestamp = chunk.created
+
+            if thinking_block is None and text_block is None:
+                yield StreamStartEvent(portion=llm_output)
 
             delta = chunk.choices[0].delta
             reasoning_content = getattr(delta, "reasoning_content", None)
@@ -124,4 +125,4 @@ class OpenAIModel(LLMModel):
                     llm_output.usage.input = llm_usage.prompt_tokens
                     llm_output.usage.output = llm_usage.completion_tokens
                     llm_output.usage.total_tokens = llm_usage.total_tokens
-                    yield EndEvent(finish_reason=finish_signal, portion=llm_output)
+                    yield StreamEndEvent(finish_reason=finish_signal, portion=llm_output)
