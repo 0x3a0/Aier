@@ -43,3 +43,11 @@ for chunk in model.stream_invoke(context):
 | `TextDeltaEvent` | 文本内容增量 | `text_delta` | `delta`: `str`<br>`portion`: `AssistantMessage` |
 | `TextEndEvent` | 文本生成结束 | `text_end` | `content`: `str`<br>`portion`: `AssistantMessage` |
 | `StreamEndEvent` | 流式对话结束 | `stream_end` | `finish_reason`: `"stop"`<br>`portion`: `AssistantMessage` |
+
+## Todos
+
+- [] 封装工具定义抽象
+
+## License
+
+MIT
