@@ -1,5 +1,6 @@
 from typing import Literal, Union, Optional
 from pydantic import BaseModel
+from .tool import Tool
 
 
 BaseModel.__str__ = BaseModel.__repr__
@@ -44,6 +45,7 @@ Message = UserMessage | AssistantMessage | ToolResultMessage
 class Context(BaseModel):
     system_prompt: Optional[str] = None
     messages: list[Message]
+    tools: Optional[list[Tool]] = None
 
 class StreamStartEvent(BaseModel):
     type: Literal["stream_start"] = "stream_start"
@@ -83,4 +85,3 @@ class StreamEndEvent(BaseModel):
     portion: AssistantMessage
 
 AssistantMessageEvent = StreamStartEvent | ThinkingDeltaEvent | ThinkingEndEvent | TextStartEvent | TextDeltaEvent | TextEndEvent | StreamEndEvent
-
