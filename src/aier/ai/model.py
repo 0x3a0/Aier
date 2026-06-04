@@ -1,5 +1,4 @@
-from .providers import OpenAIModel
-from .providers.base import LLMModel
+from .providers import LLMModel, OpenAIModel
 
 
 _API_PROVIDERS_ = {
