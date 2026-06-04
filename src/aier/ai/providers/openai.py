@@ -1,9 +1,9 @@
-from tkinter import Text
-from typing import Union
+from typing import Union, Iterator
 
 from openai import OpenAI
 
 from .base import LLMModel
+from ..tool import Tool
 from ..types import (
     TextContent, ThinkingContent,
     AssistantMessageEvent, StreamStartEvent, StreamEndEvent,
@@ -35,16 +35,24 @@ class OpenAIModel(LLMModel):
         self,
         messages: list[Message]
     ) -> list[dict]:
-        """ 将输入的上下文转换成标准的 OpenAI 消息格式 """
+        """ 将输入的上下文转换成标准的 OpenAI 格式 """
         transformed_messages = []
         for msg in messages:
             transformed_messages.append(msg.model_dump())
         return transformed_messages
 
+    def conver_tools(
+        self,
+        tools: list[Tool]
+    ) -> list[dict]:
+        """ 将 Tool 转换为标准的 function-calling schema """
+        return []
+
     def stream_invoke(
         self,
         context: Context,
-    ) -> AssistantMessageEvent:
+        **kwargs
+        ) -> Iterator[AssistantMessageEvent]:
         """ 流式输出 """
         llm_output: AssistantMessage = AssistantMessage(
             role="assistant",
@@ -66,27 +74,25 @@ class OpenAIModel(LLMModel):
         transformed_messages = self._transform_messages(context.messages)
         messages.extend(transformed_messages)
 
-        stream = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            stream=True,
-            temperature=0.8,
-            extra_body={
-                "thinking": {
-                    "type": "enable"
-                }
-            }
-        )
+
+        kwargs.pop("stream", None)
+        params: dict = {
+            "model": self.model_name,
+            "messages": messages,
+            "stream": True,
+            **kwargs
+        }
+
+        stream = self.client.chat.completions.create(**params)
 
         thinking_block: Optional[ThinkingContent] = None
         text_block: Optional[TextContent] = None
 
+        yield StreamStartEvent(portion=llm_output)
+
         for chunk in stream:
             llm_output.response_id = chunk.id
             llm_output.create_timestamp = chunk.created
-
-            if thinking_block is None and text_block is None:
-                yield StreamStartEvent(portion=llm_output)
 
             delta = chunk.choices[0].delta
             reasoning_content = getattr(delta, "reasoning_content", None)
