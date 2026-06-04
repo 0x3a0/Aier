@@ -35,7 +35,7 @@ for chunk in model.stream_invoke(context):
 
 ### 更多的聊天会话参数
 
-可以`stream_invoke`方法中传递更多的参数用于进行更精细的控制，参数的支持可能会因用于生成响应的模型而有所不同：
+可以在`stream_invoke`方法中传递更多的参数用于进行更精细的控制，参数的支持可能会因用于生成响应的模型而有所不同：
 
 ```python
 from aier.ai import get_model, UserMessage, Context
