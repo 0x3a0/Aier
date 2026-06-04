@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Union
 
+from ..tool import Tool
 from ..types import (
-    AssistantMessageEvent, AssistantMessage, Context
+    AssistantMessageEvent, Context
 )
 
 
@@ -13,13 +13,20 @@ class LLMModel(ABC):
     def stream_invoke(
         self,
         context: Context,
+        **kwargs
     ) -> AssistantMessageEvent:
         """ 流式输出 """
         ...
-
-    def complete(
+    
+    @abstractmethod
+    def conver_tools(
         self,
-        context: Context
-    ) -> AssistantMessage:
-        """ 同步输出 """
-        pass
+        tools: list[Tool]
+    ) -> list[dict]:
+        """ 
+        将 Tool 转换为标准的 function-calling schema
+
+        Returns:
+            list[dict]: 标准的 function-calling schema 列表
+        """
+        ...
