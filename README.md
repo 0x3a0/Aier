@@ -14,8 +14,6 @@
 
 ## 快速入门
 
-### 模型对话
-
 ```python
 from aier.ai import get_model, UserMessage, Context
 
@@ -33,9 +31,9 @@ for chunk in model.stream_invoke(context):
 
 框架底层默认为流式输出，对话的过程中会不断发出 stream event 事件，可以在[事件类型](#事件类型)中查看所有的事件类型。
 
-### 更多的聊天会话参数
+## 更多的聊天会话参数
 
-可以在`stream_invoke`方法中传递更多的参数用于进行更精细的控制，参数的支持可能会因用于生成响应的模型而有所不同：
+`stream_invoke`与`complete`方法可以传递更多的参数用于进行更精细的控制，参数的支持可能会因用于生成响应的模型而有所不同：
 
 ```python
 from aier.ai import get_model, UserMessage, Context
