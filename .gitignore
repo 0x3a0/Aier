@@ -1,6 +1,7 @@
 __pycache__
 .venv
 .vscode
+test/
 
 .env
 AGENTS.md
