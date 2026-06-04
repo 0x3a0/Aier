@@ -14,15 +14,17 @@
 
 ## 快速入门
 
-### 调用模型对话
+### 模型对话
 
 ```python
 from aier.ai import get_model, UserMessage, Context
 
-model = get_model("openai", "glm-4.7-flash", getenv("ZP_API_KEY"), getenv("ZP_BASE_URL"))
+load_dotenv()
+model = get_model("openai", "deepseek-v4-flash", getenv("DS_API_KEY"), getenv("DS_BASE_URL"))
 context = Context(
+    system_prompt="你的名字是0xAI",
     messages=[
-        UserMessage(content="你是谁")
+        UserMessage(content="你叫什么")
     ]
 )
 for chunk in model.stream_invoke(context):
@@ -30,6 +32,25 @@ for chunk in model.stream_invoke(context):
 ```
 
 框架底层默认为流式输出，对话的过程中会不断发出 stream event 事件，可以在[事件类型](#事件类型)中查看所有的事件类型。
+
+### 更多的聊天会话参数
+
+可以`stream_invoke`方法中传递更多的参数用于进行更精细的控制，参数的支持可能会因用于生成响应的模型而有所不同：
+
+```python
+from aier.ai import get_model, UserMessage, Context
+
+load_dotenv()
+model = get_model("openai", "deepseek-v4-flash", getenv("DS_API_KEY"), getenv("DS_BASE_URL"))
+context = Context(
+    system_prompt="你的名字是0xAI",
+    messages=[
+        UserMessage(content="你叫什么")
+    ]
+)
+for event in model.stream_invoke(context, temperature=0.8, extra_body={"thinking": {"type": "disabled"}}):
+    print(event)
+```
 
 ### 事件类型
 
@@ -46,7 +67,7 @@ for chunk in model.stream_invoke(context):
 
 ## Todos
 
-- [ ] 封装工具定义抽象
+- [ ] 封装工具定义抽象层
 
 ## License
 
