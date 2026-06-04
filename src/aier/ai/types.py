@@ -1,5 +1,5 @@
 from typing import Literal, Union, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from .tool import Tool
 
 
@@ -43,6 +43,8 @@ class ToolResultMessage(BaseModel):
 Message = UserMessage | AssistantMessage | ToolResultMessage
 
 class Context(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)  # 允许使用 Pydantic 外的类型
+
     system_prompt: Optional[str] = None
     messages: list[Message]
     tools: Optional[list[Tool]] = None
