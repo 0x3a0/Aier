@@ -48,6 +48,33 @@ class OpenAIModel(LLMModel):
         """ 将 Tool 转换为标准的 function-calling schema """
         return []
 
+    def build_params(
+        self,
+        context: Context,
+        kwargs: dict
+    ) -> dict:
+        """ 构建 OpenAI 的请求参数 """
+        messages = []
+        if context.system_prompt:
+            messages.append({"role": "system", "content": context.system_prompt})
+        transformed_messages = self._transform_messages(context.messages)
+        messages.extend(transformed_messages)
+
+        params = {
+            "model": self.model_name,
+            "messages": messages,
+            "stream": True
+        }
+
+        if "stream" in kwargs:
+            kwargs.pop("stream", None)
+
+        if "tools" in kwargs:
+            kwargs.pop("tools", None)
+
+        params.update(**kwargs)
+        return params
+
     def stream_invoke(
         self,
         context: Context,
@@ -68,21 +95,7 @@ class OpenAIModel(LLMModel):
             create_timestamp=0
         )
 
-        messages = []
-        if context.system_prompt:
-            messages.append({"role": "system", "content": context.system_prompt})
-        transformed_messages = self._transform_messages(context.messages)
-        messages.extend(transformed_messages)
-
-
-        kwargs.pop("stream", None)
-        params: dict = {
-            "model": self.model_name,
-            "messages": messages,
-            "stream": True,
-            **kwargs
-        }
-
+        params = self.build_params(context, kwargs)
         stream = self.client.chat.completions.create(**params)
 
         thinking_block: Optional[ThinkingContent] = None
