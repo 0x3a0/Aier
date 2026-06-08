@@ -1,20 +1,18 @@
 from os import getenv
 
-from openai import OpenAI
+from aier.ai import get_model, UserMessage, Context
 
-from aier.ai.providers.openai import OpenAIModel
-from aier.ai.types import Message
+from dotenv import load_dotenv
 
 
-client = OpenAI(api_key=getenv("DEEPSEEK_API_KEY"), base_url=getenv("DEEPSEEK_BASE_URL"))
+load_dotenv()
 
-chat_model = OpenAIModel(
-    model_name="deepseek-v4-flash",
-    temperature=0.8,
-    openai_client=client
+model = get_model("openai", "deepseek-v4-flash", getenv("DS_API_KEY"), getenv("DS_BASE_URL"))
+context = Context(
+    system_prompt="你的名字是0xAI",
+    messages=[
+        UserMessage(content="你叫什么")
+    ]
 )
-
-for chunk in chat_model.stream_invoke([
-    Message(role="user", content="你好, 你是谁?")
-]):
-    pass
+for event in model.stream_invoke(context, temperature=0.8, extra_body={"thinking": {"type": "disabled"}}):
+    print(event)
