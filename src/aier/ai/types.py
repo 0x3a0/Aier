@@ -15,6 +15,9 @@ class ThinkingContent(BaseModel):
 
 class ToolCall(BaseModel):
     type: Literal["tool_call"] = "tool_call"
+    id: str
+    name: str
+    arguments: str
 
 class Usage(BaseModel):
     input: int
@@ -27,7 +30,7 @@ class UserMessage(BaseModel):
 
 class AssistantMessage(BaseModel):
     role: Literal["assistant"] = "assistant"
-    content: list[Union[TextContent, ThinkingContent]]      # LLM返回的信息会包含多种可能，例如：content、reasoning_content、tool_call 等
+    content: list[Union[TextContent, ThinkingContent, ToolCall]]      # LLM返回的信息会包含多种可能，例如：content、reasoning_content、tool_call 等
     provider: Optional[str] = None
     model: str
     response_id: str
@@ -37,8 +40,9 @@ class AssistantMessage(BaseModel):
     
 class ToolResultMessage(BaseModel):
     role: Literal["tool"] = "tool"
-    tool_call_id: str
-    content: TextContent
+    id: str
+    name: str
+    content: list[TextContent]
 
 Message = UserMessage | AssistantMessage | ToolResultMessage
 
@@ -81,9 +85,23 @@ class TextEndEvent(BaseModel):
     content: str
     portion: AssistantMessage
 
+class ToolCallStartEvent(BaseModel):
+    type: Literal["tool_call_start"] = "tool_call_start"
+    portion: AssistantMessage
+
+class ToolCallDeltaEvent(BaseModel):
+    type: Literal["tool_call_delta"] = "tool_call_delta"
+    delta: str
+    portion: AssistantMessage
+
+class ToolCallEndEvent(BaseModel):
+    type: Literal["tool_call_end"] = "tool_call_end"
+    tool_call: ToolCall
+    portion: AssistantMessage
+
 class StreamEndEvent(BaseModel):
     type: Literal["stream_end"] = "stream_end"
     finish_reason: Literal["stop"]
     portion: AssistantMessage
 
-AssistantMessageEvent = StreamStartEvent | ThinkingDeltaEvent | ThinkingEndEvent | TextStartEvent | TextDeltaEvent | TextEndEvent | StreamEndEvent
+AssistantMessageEvent = StreamStartEvent | ThinkingDeltaEvent | ThinkingEndEvent | TextStartEvent | TextDeltaEvent | TextEndEvent | StreamEndEvent | ToolCallStartEvent | ToolCallDeltaEvent | ToolCallEndEvent
