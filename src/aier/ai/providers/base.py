@@ -17,7 +17,7 @@ class LLMModel(ABC):
         """流式输出"""
 
     @abstractmethod
-    def conver_tools(
+    def _convert_tools(
         self,
         tools: list[Tool]
     ) -> list[dict]:
