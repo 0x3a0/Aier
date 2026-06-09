@@ -5,10 +5,11 @@ from openai import OpenAI
 from .base import LLMModel
 from ..tool import Tool
 from ..types import (
-    TextContent, ThinkingContent,
+    TextContent, ThinkingContent, ToolCall,
     AssistantMessageEvent, StreamStartEvent, StreamEndEvent,
     ThinkingStartEvent, ThinkingDeltaEvent, ThinkingEndEvent,
     TextStartEvent, TextDeltaEvent, TextEndEvent,
+    ToolCallStartEvent, ToolCallDeltaEvent, ToolCallEndEvent,
     AssistantMessage, Message,
     Context, Usage
 )
@@ -41,14 +42,14 @@ class OpenAIModel(LLMModel):
             transformed_messages.append(msg.model_dump())
         return transformed_messages
 
-    def conver_tools(
+    def _convert_tools(
         self,
         tools: list[Tool]
     ) -> list[dict]:
         """ 将 Tool 转换为标准的 function-calling schema """
-        return []
+        return [t.schema() for t in tools]
 
-    def build_params(
+    def _build_params(
         self,
         context: Context,
         kwargs: dict
@@ -65,6 +66,8 @@ class OpenAIModel(LLMModel):
             "messages": messages,
             "stream": True
         }
+
+        params["tools"] = self._convert_tools(context.tools)
 
         if "stream" in kwargs:
             kwargs.pop("stream", None)
@@ -95,11 +98,12 @@ class OpenAIModel(LLMModel):
             create_timestamp=0
         )
 
-        params = self.build_params(context, kwargs)
+        params = self._build_params(context, kwargs)
         stream = self.client.chat.completions.create(**params)
 
         thinking_block: Optional[ThinkingContent] = None
         text_block: Optional[TextContent] = None
+        tool_call_block: Optional[ToolCall] = None
 
         yield StreamStartEvent(portion=llm_output)
 
@@ -108,6 +112,8 @@ class OpenAIModel(LLMModel):
             llm_output.create_timestamp = chunk.created
 
             delta = chunk.choices[0].delta
+
+            # reasoning_content 字段是否存在
             reasoning_content = getattr(delta, "reasoning_content", None)
             if reasoning_content:
                 if thinking_block is None:
@@ -119,9 +125,10 @@ class OpenAIModel(LLMModel):
                 yield ThinkingDeltaEvent(delta=reasoning_content, portion=llm_output)
             
             if reasoning_content is None and thinking_block is not None:
-                yield ThinkingEndEvent(content=thinking_block.thinking ,portion=llm_output)
+                yield ThinkingEndEvent(content=thinking_block.thinking, portion=llm_output)
                 thinking_block = None
 
+            # content 字段是否存在
             text_content = getattr(delta, "content", None)
             if text_content:
                 if text_block is None:
@@ -132,16 +139,47 @@ class OpenAIModel(LLMModel):
                 text_block.text += text_content
                 yield TextDeltaEvent(delta=text_content, portion=llm_output)
 
-            # 当 text_content 为空字符串，且 finish_reason="stop" 时，说明模型完成生成
+            # tool_calls 字段是否存在
+            tool_calls = getattr(delta, "tool_calls", None)
+            if tool_calls:
+
+                # tool_calls 存在时，表明 text content 内容已经生成完毕，此处应该返回 text_end 事件
+                # ChatCompletionChunk(id='...', choices=[Choice(delta=ChoiceDelta(content='...', function_call=None, tool_calls=None, reasoning_content=None), finish_reason=None, index=0, logprobs=None)], usage=None)
+                # ChatCompletionChunk(id='...', choices=[Choice(delta=ChoiceDelta(content=None, function_call=None, tool_calls=[ChoiceDeltaToolCall(index=0, id='...', function=ChoiceDeltaToolCallFunction(arguments='', name='...'), type='function')]), finish_reason=None, index=0, logprobs=None)], usage=None)
+                if text_content is None and text_block is not None:
+                    yield TextEndEvent(content=text_block.text, portion=llm_output)
+                    text_block = None
+
+                if tool_call_block is None:
+                    tool_call_block = ToolCall(
+                        id=tool_calls[0].id,
+                        name=tool_calls[0].function.name,
+                        arguments=""
+                    )
+                    llm_output.content.append(tool_call_block)
+                    yield ToolCallStartEvent(portion=llm_output)
+
+                tool_call_block.arguments += tool_calls[0].function.arguments
+                yield ToolCallDeltaEvent(delta=tool_calls[0].function.arguments, portion=llm_output)
+
+            # 处理 text content 结束的情况，分为两种：1. 模型完成生成 2. 模型调用工具
             finish_signal = getattr(chunk.choices[0], "finish_reason", None)
+
+            # 模型完成生成时的情况
             if finish_signal == "stop":
                 if not text_content and text_block is not None:
                     yield TextEndEvent(content=text_block.text, portion=llm_output)
                     text_block = None
-                
-                if llm_output.finish_reason == finish_signal:
-                    llm_usage = chunk.usage
-                    llm_output.usage.input = llm_usage.prompt_tokens
-                    llm_output.usage.output = llm_usage.completion_tokens
-                    llm_output.usage.total_tokens = llm_usage.total_tokens
-                    yield StreamEndEvent(finish_reason=finish_signal, portion=llm_output)
+
+            # 模型调用工具时的情况
+            if finish_signal == "tool_calls":
+                yield ToolCallEndEvent(tool_call=tool_call_block, portion=llm_output)
+                tool_call_block = None
+            
+            # usage
+            usage = getattr(chunk, "usage", None)
+            if usage:
+                llm_output.usage.input = usage.prompt_tokens
+                llm_output.usage.output = usage.completion_tokens
+                llm_output.usage.total_tokens = usage.total_tokens
+                yield StreamEndEvent(finish_reason=finish_signal, portion=llm_output)
