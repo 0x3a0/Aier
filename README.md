@@ -7,9 +7,11 @@
 - [aier-ai](https://github.com/0x3a0/Aier/tree/main/src/aier/ai)：LLM API(OpenAI, Anthropic, Google...) 的抽象层，屏蔽不同大模型供应商之间的结构差异
 - [aier-agent](https://github.com/0x3a0/Aier/tree/main/src/aier/agent)：具备状态管理、长短期记忆、工具调用等功能的 Agent 运行环境
 
-## 所支持的 LLM API 格式
+## 已测试的大模型厂商
 
-- OpenAI
+- OpenAI API
+    - 深度求索（Deepseek）
+    - 智谱（Z.ai）
 - 未来会补充 Anthropic、Google 等 API 格式
 
 ## 快速入门
