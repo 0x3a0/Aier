@@ -35,7 +35,7 @@ class AssistantMessage(BaseModel):
     model: str
     response_id: str
     usage: Usage
-    finish_reason: Literal["stop"]
+    finish_reason: Literal["stop", "tool_calls"]
     create_timestamp: int
     
 class ToolResultMessage(BaseModel):
@@ -101,7 +101,7 @@ class ToolCallEndEvent(BaseModel):
 
 class StreamEndEvent(BaseModel):
     type: Literal["stream_end"] = "stream_end"
-    finish_reason: Literal["stop"]
+    finish_reason: Literal["stop", "tool_calls"]
     portion: AssistantMessage
 
 AssistantMessageEvent = StreamStartEvent | ThinkingDeltaEvent | ThinkingEndEvent | TextStartEvent | TextDeltaEvent | TextEndEvent | StreamEndEvent | ToolCallStartEvent | ToolCallDeltaEvent | ToolCallEndEvent

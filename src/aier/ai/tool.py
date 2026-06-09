@@ -15,10 +15,14 @@ class Tool(ABC):
     def schema(self) -> dict:
         """ 转换为标准 function-calling schema """
         return {
-            "name": self.name,
-            "description": self.description,
-            "parameters": {
-                "type": "object",
-                "properties": self.parameters
-            },
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": self.parameters,
+                    "required": list(self.parameters.keys())
+                }
+            }
         }
