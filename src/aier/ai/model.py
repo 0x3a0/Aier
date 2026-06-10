@@ -11,6 +11,7 @@ def get_model(
     api_key: str,
     base_url: str
 ) -> LLMModel:
+    """ 创建对应 LLM API 的工厂函数 """
     api_class = _API_PROVIDERS_.get(format, "")
     if not api_class:
         raise ValueError(f"不支持的格式: {format}")
