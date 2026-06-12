@@ -1,9 +1,8 @@
-from typing import Union, Iterator
+from typing import Iterator
 
 from openai import OpenAI
 
 from .base import LLMModel
-from ..tool import Tool
 from ..types import (
     TextContent, ThinkingContent, ToolCall,
     AssistantMessageEvent, StreamStartEvent, StreamEndEvent,
@@ -11,7 +10,7 @@ from ..types import (
     TextStartEvent, TextDeltaEvent, TextEndEvent,
     ToolCallStartEvent, ToolCallDeltaEvent, ToolCallEndEvent,
     AssistantMessage, Message,
-    Context, Usage
+    Context, Usage, Tool
 )
 
 
@@ -47,7 +46,7 @@ class OpenAIModel(LLMModel):
         tools: list[Tool]
     ) -> list[dict]:
         """ 将 Tool 转换为标准的 function-calling schema """
-        return [t.schema() for t in tools]
+        return [t.parameters for t in tools]
 
     def _build_params(
         self,

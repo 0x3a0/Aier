@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterator
 
-from ..types import AssistantMessageEvent, Context
-from ..tool import Tool
+from ..types import AssistantMessageEvent, Context, Tool
 
 
 class LLMModel(ABC):
