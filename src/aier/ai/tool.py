@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Callable
+from typing import Callable, Optional
 
 
 class Tool(BaseModel):
@@ -11,7 +11,7 @@ def build_tool(
     *,
     description: str,
     parameters: dict,
-    func: Callable
+    func: Optional[Callable]
 ) -> Tool:
     if not description:
         raise ValueError("description is required")
@@ -19,8 +19,6 @@ def build_tool(
         raise ValueError("parameters is required")
     if not func:
         raise ValueError("func is required")
-    if not isinstance(func, Callable):
-        raise ValueError("func must be a callable")
 
     return Tool(
         tool_schema={

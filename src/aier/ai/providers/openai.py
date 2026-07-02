@@ -46,7 +46,7 @@ class OpenAIModel(LLMModel):
         tools: list[Tool]
     ) -> list[dict]:
         """ 将 Tool 转换为标准的 function-calling schema """
-        return [t.parameters for t in tools]
+        return [t.tool_schema for t in tools]
 
     def _build_params(
         self,
