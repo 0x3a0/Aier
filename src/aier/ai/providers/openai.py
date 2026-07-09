@@ -172,6 +172,7 @@ class OpenAIModel(LLMModel):
 
             # 模型调用工具时的情况
             if finish_signal == "tool_calls":
+                llm_output.finish_reason = finish_signal
                 yield ToolCallEndEvent(tool_call=tool_call_block, portion=llm_output)
                 tool_call_block = None
             
