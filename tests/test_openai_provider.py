@@ -10,50 +10,70 @@
 3. 循环内无条件读取 `chunk.id` / `chunk.created` 并索引 `chunk.choices[0]`，
    但 OpenAI 在流末尾会追加一个 usage 汇总 chunk（`choices` 为空、`id` 为
    `None`），这会直接 `IndexError`。
+4. `StreamEndEvent` 曾用 usage chunk 的 `finish_reason=None` 构造，与
+   `FinishReason` 字面量冲突，导致每次流式输出都在末尾 ValidationError。
 
 由于这些表达式都藏在延迟执行的生成器体内，只有真正驱动流才能发现。
 """
 
 from types import SimpleNamespace
-from typing import ClassVar
+from typing import Any, override
 
 import pytest
 
 from aier.ai import Context, Tool, UserMessage
-from aier.ai.providers import openai as openai_provider
+from aier.ai.providers.openai import OpenAIModel
+from aier.ai.types import (
+    AssistantMessage,
+    AssistantMessageEvent,
+    TextDeltaEvent,
+    TextEndEvent,
+    ThinkingEndEvent,
+    ToolCallEndEvent,
+)
 
 
 class _WeatherTool(Tool):
     """用于验证 tools 字段下发的最小可用工具。"""
 
-    name: ClassVar[str] = "get_weather"
-    description: ClassVar[str] = "查询天气"
-    parameters: ClassVar[dict] = {"city": {"type": "string"}}
+    name: str = "get_weather"
+    description: str = "查询天气"
+    # 测试替身只会被实例化一次，共享该 dict 不会互相污染
+    parameters: dict[str, Any] = {"city": {"type": "string"}}  # noqa: RUF012
 
-    def execute(self, **kwargs) -> str:
+    @override
+    def execute(self, **kwargs: Any) -> str:
         return "晴"
 
 
 class _StubCompletions:
+    """假的 chat.completions 资源，记录收到的请求参数。"""
+
+    chunks: list[SimpleNamespace]
+    params: dict[str, Any] | None
+
     def __init__(self, chunks: list[SimpleNamespace]) -> None:
-        self._chunks = chunks
-        self.params: dict | None = None
+        self.chunks = chunks
+        self.params = None
 
-    def create(self, **params) -> list[SimpleNamespace]:
+    def create(self, **params: Any) -> list[SimpleNamespace]:
         self.params = params
-        return self._chunks
+        return self.chunks
 
 
-def _make_model(monkeypatch: pytest.MonkeyPatch, chunks: list[SimpleNamespace]):
+def _make_model(
+    monkeypatch: pytest.MonkeyPatch, chunks: list[SimpleNamespace]
+) -> tuple[OpenAIModel, _StubCompletions]:
     """构造 OpenAIModel，并把 OpenAI 客户端替换为返回固定 chunk 的假客户端。"""
     completions = _StubCompletions(chunks)
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
 
-    monkeypatch.setattr(
-        openai_provider.OpenAIModel, "_create_client", lambda self, k, b: fake_client
-    )
+    def _fake_create_client(_self: OpenAIModel, _api_key: str, _base_url: str) -> Any:
+        return fake_client
 
-    model = openai_provider.OpenAIModel("test-model", "sk-test", "https://example.invalid")
+    monkeypatch.setattr(OpenAIModel, "_create_client", _fake_create_client)
+
+    model = OpenAIModel("test-model", "sk-test", "https://example.invalid")
     return model, completions
 
 
@@ -93,14 +113,39 @@ def _context(content: str = "你好") -> Context:
     return Context(messages=[UserMessage(content=content)])
 
 
+def _events(model: OpenAIModel, context: Context, **kwargs: Any) -> list[AssistantMessageEvent]:
+    return list(model.stream_invoke(context, **kwargs))
+
+
+def _types(events: list[AssistantMessageEvent]) -> list[str]:
+    return [event.type for event in events]
+
+
+def _portions(events: list[AssistantMessageEvent]) -> list[AssistantMessage]:
+    return [event.portion for event in events]
+
+
+def _deltas(events: list[AssistantMessageEvent]) -> list[str]:
+    """取出所有 TextDeltaEvent 的增量文本（按类型收窄后再访问字段）。"""
+    return [event.delta for event in events if isinstance(event, TextDeltaEvent)]
+
+
+def _text_ends(events: list[AssistantMessageEvent]) -> list[str]:
+    return [event.content for event in events if isinstance(event, TextEndEvent)]
+
+
+def _thinking_ends(events: list[AssistantMessageEvent]) -> list[str]:
+    return [event.content for event in events if isinstance(event, ThinkingEndEvent)]
+
+
 def test_usage_only_final_chunk_does_not_crash(monkeypatch: pytest.MonkeyPatch) -> None:
     """回归：末尾 usage chunk 的 choices 为空列表。"""
     model, _ = _make_model(monkeypatch, [_usage_chunk(3, 4)])
 
-    events = list(model.stream_invoke(_context()))
+    events = _events(model, _context())
 
-    assert [e.type for e in events] == ["stream_start", "stream_end"]
-    assert events[-1].portion.usage.total_tokens == 7
+    assert _types(events) == ["stream_start", "stream_end"]
+    assert _portions(events)[-1].usage.total_tokens == 7
 
 
 def test_text_only_stream(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -113,18 +158,20 @@ def test_text_only_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     ]
     model, _ = _make_model(monkeypatch, chunks)
 
-    events = list(model.stream_invoke(_context()))
+    events = _events(model, _context())
 
-    assert events[0].type == "stream_start"
-    assert [e.type for e in events[1:3]] == ["text_start", "text_delta"]
-    assert [e.delta for e in events if e.type == "text_delta"] == ["你", "好"]
-    assert [e.content for e in events if e.type == "text_end"] == ["你好"]
-    assert events[-1].type == "stream_end"
-    assert events[-1].finish_reason == "stop"
-    assert events[-1].portion.response_id == "chatcmpl-test"
-    assert events[-1].portion.create_timestamp == 1700000000
-    assert events[-1].portion.usage.input == 8
-    assert events[-1].portion.usage.output == 2
+    assert _types(events)[0] == "stream_start"
+    assert _types(events)[1:3] == ["text_start", "text_delta"]
+    assert _deltas(events) == ["你", "好"]
+    assert _text_ends(events) == ["你好"]
+
+    last = events[-1]
+    assert last.type == "stream_end"
+    assert last.finish_reason == "stop"
+    assert last.portion.response_id == "chatcmpl-test"
+    assert last.portion.create_timestamp == 1700000000
+    assert last.portion.usage.input == 8
+    assert last.portion.usage.output == 2
 
 
 def test_thinking_then_text_stream(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -138,15 +185,15 @@ def test_thinking_then_text_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     ]
     model, _ = _make_model(monkeypatch, chunks)
 
-    events = list(model.stream_invoke(_context()))
+    events = _events(model, _context())
 
-    assert [e.type for e in events if e.type.startswith("thinking")] == [
+    assert [t for t in _types(events) if t.startswith("thinking")] == [
         "thinking_start",
         "thinking_delta",
         "thinking_end",
     ]
-    assert [e.content for e in events if e.type == "thinking_end"] == ["思考"]
-    assert [e.content for e in events if e.type == "text_end"] == ["答案"]
+    assert _thinking_ends(events) == ["思考"]
+    assert _text_ends(events) == ["答案"]
 
 
 def test_tool_call_stream(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -161,40 +208,62 @@ def test_tool_call_stream(monkeypatch: pytest.MonkeyPatch) -> None:
         id=None,
         function=SimpleNamespace(name=None, arguments='"北京"}'),
     )
-    tool_chunk = SimpleNamespace(
-        content=None, reasoning_content=None, tool_calls=[first_tool_delta]
-    )
-    tool_chunk_2 = SimpleNamespace(
-        content=None, reasoning_content=None, tool_calls=[second_tool_delta]
-    )
     chunks = [
         _chunk(_text("查询中")),
-        _chunk(tool_chunk),
-        _chunk(tool_chunk_2),
+        _chunk(
+            SimpleNamespace(content=None, reasoning_content=None, tool_calls=[first_tool_delta])
+        ),
+        _chunk(
+            SimpleNamespace(content=None, reasoning_content=None, tool_calls=[second_tool_delta])
+        ),
         _chunk(_text(None), "tool_calls"),
         _usage_chunk(10, 5),
     ]
     model, _ = _make_model(monkeypatch, chunks)
 
-    events = list(model.stream_invoke(_context("天气")))
+    events = _events(model, _context("天气"))
 
-    assert [e.type for e in events if e.type.startswith("tool_call")] == [
+    assert [t for t in _types(events) if t.startswith("tool_call")] == [
         "tool_call_start",
         "tool_call_delta",
         "tool_call_delta",
         "tool_call_end",
     ]
-    end_event = next(e for e in events if e.type == "tool_call_end")
+    end_event = next(e for e in events if isinstance(e, ToolCallEndEvent))
     assert end_event.tool_call.id == "call_1"
     assert end_event.tool_call.name == "get_weather"
     assert end_event.tool_call.arguments == '{"city":"北京"}'
 
     # 文本块应在工具调用开始时收尾
-    assert [e.content for e in events if e.type == "text_end"] == ["查询中"]
+    assert _text_ends(events) == ["查询中"]
+
+    last = events[-1]
+    assert last.type == "stream_end"
+    assert last.finish_reason == "tool_calls"
+    assert last.portion.usage.total_tokens == 15
+
+
+def test_truncated_stream_uses_length_finish_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    """触达 token 上限时 OpenAI 返回 finish_reason="length"。
+
+    旧实现把 finish_reason 收窄为 stop / tool_calls，这里会 ValidationError。
+    """
+    chunks = [_chunk(_text("被截断"), "length"), _usage_chunk(5, 9)]
+    model, _ = _make_model(monkeypatch, chunks)
+
+    events = _events(model, _context())
 
     assert events[-1].type == "stream_end"
-    assert events[-1].finish_reason == "tool_calls"
-    assert events[-1].portion.usage.total_tokens == 15
+    assert events[-1].finish_reason == "length"
+
+
+def test_stream_without_finish_chunk_still_ends(monkeypatch: pytest.MonkeyPatch) -> None:
+    """即使流里没有 usage 汇总 chunk，也必须以终态事件收尾。"""
+    model, _ = _make_model(monkeypatch, [_chunk(_text("你好"))])
+
+    events = _events(model, _context())
+
+    assert events[-1].type == "stream_end"
 
 
 def test_build_params_overrides_stream_and_tools(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -202,14 +271,15 @@ def test_build_params_overrides_stream_and_tools(monkeypatch: pytest.MonkeyPatch
     model, completions = _make_model(monkeypatch, [])
     context = Context(messages=[UserMessage(content="hi")])
 
-    list(model.stream_invoke(context, stream=False, tools=["hacked"], temperature=0.5))
+    _ = _events(model, context, stream=False, tools=["hacked"], temperature=0.5)
 
-    assert completions.params is not None
-    assert completions.params["stream"] is True
-    assert completions.params["temperature"] == 0.5
-    assert completions.params["model"] == "test-model"
+    params = completions.params
+    assert params is not None
+    assert params["stream"] is True
+    assert params["temperature"] == 0.5
+    assert params["model"] == "test-model"
     # 未注册工具时不下发 tools 字段（历史缺陷：会对 None 迭代并抛 TypeError）
-    assert "tools" not in completions.params
+    assert "tools" not in params
 
 
 def test_context_without_tools_does_not_crash(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -222,7 +292,7 @@ def test_context_without_tools_does_not_crash(monkeypatch: pytest.MonkeyPatch) -
 
     model, _ = _make_model(monkeypatch, [_chunk(_text("ok"), "stop"), _usage_chunk(1, 1)])
 
-    events = list(model.stream_invoke(_context()))
+    events = _events(model, _context())
 
     assert events[-1].type == "stream_end"
 
@@ -233,7 +303,8 @@ def test_registered_tools_are_sent(monkeypatch: pytest.MonkeyPatch) -> None:
     model, completions = _make_model(monkeypatch, [])
     context = Context(messages=[UserMessage(content="hi")], tools=[tool])
 
-    list(model.stream_invoke(context))
+    _ = _events(model, context)
 
-    assert completions.params is not None
-    assert completions.params["tools"] == [tool.schema()]
+    params = completions.params
+    assert params is not None
+    assert params["tools"] == [tool.schema()]

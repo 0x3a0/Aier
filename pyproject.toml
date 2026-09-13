@@ -21,10 +21,10 @@ dev = [
     "python-dotenv>=1.2.2",
     "pytest>=8.4.2",
     "ruff>=0.16.7",
+    "basedpyright>=1.40.1",
 ]
 
 [tool.ruff]
-# 与 `requires-python` 保持一致，避免 Ruff 的自动推断随环境变化
 target-version = "py313"
 line-length = 100
 src = ["src", "examples", "tests"]
@@ -45,12 +45,16 @@ select = [
     "RET",  # flake8-return
     "PTH",  # flake8-use-pathlib
     "RUF",  # Ruff 自身规则
+    "ANN",  # flake8-annotations：缺少类型标注
 ]
 # 本项目注释与文档字符串使用中文，全角标点是刻意为之，不属于「易混字符」
 ignore = [
     "RUF001",  # ambiguous-unicode-character-string
     "RUF002",  # ambiguous-unicode-character-docstring
     "RUF003",  # ambiguous-unicode-character-comment
+    # 透传底层 SDK 的 **kwargs / 工具 schema 必须用 Any，这是刻意选择而非疏漏。
+    # 其余 ANN 规则（缺参数/返回值/属性标注）保持开启。
+    "ANN401",  # any-type
 ]
 
 [tool.ruff.lint.isort]

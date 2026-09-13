@@ -42,5 +42,8 @@ jobs:
       - name: Ruff format check
         run: uv run --no-sync ruff format --check .
 
+      - name: Basedpyright type check
+        run: uv run --no-sync basedpyright
+
       - name: Tests
         run: uv run --no-sync pytest -q

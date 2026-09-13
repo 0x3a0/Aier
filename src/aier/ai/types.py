@@ -1,10 +1,14 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from .tool import Tool
 
 BaseModel.__str__ = BaseModel.__repr__
+
+#: 模型结束生成的原因。OpenAI 兼容接口除 stop / tool_calls 外，
+#: 还会在触达 token 上限或内容过滤时返回 length / content_filter。
+FinishReason = Literal["stop", "tool_calls", "length", "content_filter"]
 
 
 class TextContent(BaseModel):
@@ -44,7 +48,7 @@ class AssistantMessage(BaseModel):
     model: str
     response_id: str
     usage: Usage
-    finish_reason: Literal["stop", "tool_calls"]
+    finish_reason: FinishReason
     create_timestamp: int
 
 
@@ -59,7 +63,8 @@ Message = UserMessage | AssistantMessage | ToolResultMessage
 
 
 class Context(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)  # 允许使用 Pydantic 外的类型
+    # 允许使用 Pydantic 外的类型
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     system_prompt: str | None = None
     messages: list[Message]
@@ -124,12 +129,13 @@ class ToolCallEndEvent(BaseModel):
 
 class StreamEndEvent(BaseModel):
     type: Literal["stream_end"] = "stream_end"
-    finish_reason: Literal["stop", "tool_calls"]
+    finish_reason: FinishReason
     portion: AssistantMessage
 
 
 AssistantMessageEvent = (
     StreamStartEvent
+    | ThinkingStartEvent
     | ThinkingDeltaEvent
     | ThinkingEndEvent
     | TextStartEvent

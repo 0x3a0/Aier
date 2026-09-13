@@ -2,6 +2,16 @@ from collections.abc import Callable
 from inspect import Parameter
 from typing import Any
 
+#: 参数类型标注 → JSON-Schema 类型名
+_JSON_SCHEMA_TYPES: dict[Any, str] = {
+    str: "string",
+    int: "integer",
+    float: "number",
+    bool: "boolean",
+    list: "array",
+    dict: "object",
+}
+
 
 class ToolRegistry:
     """
@@ -10,23 +20,32 @@ class ToolRegistry:
     该类提供了一个 register 装饰器方法，用于注册工具实例
     """
 
+    tools: list[dict[str, Any]]
+    tool_funcs: dict[str, Callable[..., Any]]
+
     def __init__(self) -> None:
-        self.tools: list[dict[str, dict] | None] = []
-        self.tool_funcs: dict[str, Callable] | None = {}
+        self.tools = []
+        self.tool_funcs = {}
 
     def _load_defaults(self) -> None:
         """加载默认工具"""
 
     def _parse_arg_property(self, arg: Parameter) -> dict[str, str]:
         """解析参数类型"""
-        arg_annotation = arg.annotation
+        annotation = arg.annotation
 
-        if arg_annotation is str:
-            return {"type": "string"}
+        if annotation is Parameter.empty:
+            raise NotImplementedError(f"参数 {arg.name} 缺少类型标注")
 
-        raise NotImplementedError(f"暂不支持的参数类型: {arg_annotation}")
+        schema_type = _JSON_SCHEMA_TYPES.get(annotation)
+        if schema_type is None:
+            raise NotImplementedError(f"暂不支持的参数类型: {annotation}")
 
-    def register(self, *, description: str, parameters: dict[str, Any]) -> Callable:
+        return {"type": schema_type}
+
+    def register(
+        self, *, description: str, parameters: dict[str, Any]
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """
         注册 tool 的装饰器方法
         生成符合模型调用格式的 Function Tool
@@ -45,8 +64,8 @@ class ToolRegistry:
         }
         """
 
-        def wrapper(func):
-            tool_schema = {
+        def wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
+            tool_schema: dict[str, Any] = {
                 "type": "function",
                 "function": {
                     "name": func.__name__,
@@ -62,10 +81,10 @@ class ToolRegistry:
 
         return wrapper
 
-    def get_registered_tools(self):
+    def get_registered_tools(self) -> list[dict[str, Any]]:
         """获取已注册的工具列表"""
         return self.tools
 
-    def get_registered_tool_funcs(self):
+    def get_registered_tool_funcs(self) -> dict[str, Callable[..., Any]]:
         """获取已注册的工具函数列表"""
         return self.tool_funcs
