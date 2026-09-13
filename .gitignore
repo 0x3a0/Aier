@@ -1,6 +1,8 @@
 __pycache__
 .venv
+# 编辑器配置（不纳入版本控制）
 .vscode/
+.vscode/**
 test/
 
 # 工具缓存
