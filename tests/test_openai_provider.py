@@ -148,6 +148,24 @@ def test_usage_only_final_chunk_does_not_crash(monkeypatch: pytest.MonkeyPatch) 
     assert _portions(events)[-1].usage.total_tokens == 7
 
 
+def test_usage_chunk_does_not_erase_response_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """回归：usage chunk 的 id / created 实测为 None。
+
+    该 chunk 的 choices 为空，旧代码直接 `chunk.choices[0]` 会 IndexError；
+    即便修掉索引，若无条件赋值也会把 response_id 覆盖成 None。
+    SDK 把这两个字段声明为非可选，因此这里的行为与类型声明并不一致，
+    必须靠运行期判断兜住。
+    """
+    chunks = [_chunk(_text("你好")), _usage_chunk(3, 4)]
+    model, _ = _make_model(monkeypatch, chunks)
+
+    events = _events(model, _context())
+
+    last = _portions(events)[-1]
+    assert last.response_id == "chatcmpl-test", "usage chunk 不应把 response_id 覆盖为 None"
+    assert last.create_timestamp == 1700000000, "usage chunk 不应把 created 覆盖为 None"
+
+
 def test_text_only_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     """纯文本流：确保 Optional 注解所在的代码路径可以正常执行。"""
     chunks = [

@@ -170,8 +170,15 @@ class TestTypeCheckConfig:
         assert pyright_config.get("venvPath"), "必须设置 venvPath"
         assert pyright_config.get("venv"), "必须指向 .venv 以解析第三方依赖"
 
+    def test_strictest_mode_is_used(self, pyright_config: PyprojectConfig) -> None:
+        """all 是最严格模式，比 pyright 官方 standard 还严。"""
+        assert pyright_config.get("typeCheckingMode") == "all"
+
     def test_unknown_type_rules_are_errors(self, pyright_config: PyprojectConfig) -> None:
-        """缺少类型标注必须是 error，否则「变量没标注」不会被发现。"""
+        """缺少类型标注必须被拦下，否则「变量没标注」不会被发现。
+
+        all 模式默认就把这些规则设为 error；若显式关闭则视为回归。
+        """
         for rule in (
             "reportUnknownVariableType",
             "reportUnknownParameterType",
@@ -179,7 +186,8 @@ class TestTypeCheckConfig:
             "reportUnknownArgumentType",
             "reportMissingTypeArgument",
         ):
-            assert pyright_config.get(rule) == "error", f"{rule} 应为 error"
+            configured = pyright_config.get(rule)
+            assert configured != "none", f"{rule} 被显式关闭，类型标注将失去门禁"
 
 
 class TestRuffRunsClean:

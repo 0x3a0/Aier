@@ -2,6 +2,12 @@ from collections.abc import Iterable, Iterator, Sequence
 from typing import Any, cast, override
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionChunk
+from openai.types.chat.chat_completion_chunk import (
+    Choice,
+    ChoiceDelta,
+    ChoiceDeltaToolCall,
+)
 
 from ..tool import Tool
 from ..types import (
@@ -28,27 +34,21 @@ from ..types import (
 )
 from .base import LLMModel
 
-# OpenAI SDK 的 chunk / delta 结构包含大量可选字段，且各供应商会加挂
-# 自定义字段（如 DeepSeek 的 reasoning_content），故以不透明类型承载，
-# 在取值处再做精确化处理。
-Chunk = object
-Delta = object
 RequestParams = dict[str, Any]
-# 单个 chunk 的处理结果：事件列表 + 更新后的三个累积块
-ChunkResult = tuple[
-    list[AssistantMessageEvent],
-    ThinkingContent | None,
-    TextContent | None,
-    ToolCall | None,
-]
 
 
-def _field(source: object, name: str, default: Any = None) -> Any:
-    """按键取值，缺失时回退到默认值。
+class VendorChoiceDelta(ChoiceDelta):
+    """OpenAI 兼容供应商会加挂自定义字段，这里补上已知的扩展。
 
-    统一收口了 `getattr` 的三参形式，避免每个调用点都产生 Unknown 类型。
+    DeepSeek / Z.ai 等以 reasoning_content 返回推理内容，官方 SDK 的
+    ChoiceDelta 并未声明该字段（运行时因 extra="allow" 会被保留）。
     """
-    return getattr(source, name, default)
+
+    reasoning_content: str | None = None
+
+
+def _as_vendor_delta(delta: ChoiceDelta) -> VendorChoiceDelta:
+    return cast(VendorChoiceDelta, delta)
 
 
 class OpenAIModel(LLMModel):
@@ -106,7 +106,7 @@ class OpenAIModel(LLMModel):
         )
 
         params = self._build_params(context, kwargs)
-        stream = cast(Iterable[Chunk], self.client.chat.completions.create(**params))
+        stream = cast(Iterable[ChatCompletionChunk], self.client.chat.completions.create(**params))
 
         yield StreamStartEvent(portion=llm_output)
 
@@ -115,19 +115,19 @@ class OpenAIModel(LLMModel):
         tool_call_block: ToolCall | None = None
 
         for chunk in stream:
-            # usage 汇总 chunk 的 id / created 为 None，不应覆盖已有的响应信息
-            chunk_id = _field(chunk, "id")
-            if chunk_id is not None:
-                llm_output.response_id = chunk_id
+            # usage 汇总 chunk 的 id / created 实测为 None，但 SDK 把它们声明为
+            # 非可选（str / int）。运行时的真实取值优先于类型声明，故保留判断：
+            # 直接赋值会把 response_id / create_timestamp 覆盖成 None。
+            if chunk.id is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                llm_output.response_id = chunk.id
 
-            chunk_created = _field(chunk, "created")
-            if chunk_created is not None:
-                llm_output.create_timestamp = chunk_created
+            if chunk.created is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                llm_output.create_timestamp = chunk.created
 
             # OpenAI 在流末尾会追加 usage 汇总 chunk，其 choices 为空列表
-            choices = _field(chunk, "choices", [])
-            delta = _field(choices[0], "delta") if choices else None
-            finish_reason = _field(choices[0], "finish_reason") if choices else None
+            choice: Choice | None = chunk.choices[0] if chunk.choices else None
+            delta = choice.delta if choice is not None else None
+            finish_reason = _parse_finish_reason(choice)
             if finish_reason is not None:
                 # 记住结束原因：末尾的 usage 汇总 chunk 不再携带 finish_reason
                 llm_output.finish_reason = finish_reason
@@ -137,11 +137,10 @@ class OpenAIModel(LLMModel):
             )
             yield from events
 
-            usage = _field(chunk, "usage")
-            if usage:
-                llm_output.usage.input = _field(usage, "prompt_tokens", 0)
-                llm_output.usage.output = _field(usage, "completion_tokens", 0)
-                llm_output.usage.total_tokens = _field(usage, "total_tokens", 0)
+            if chunk.usage is not None:
+                llm_output.usage.input = chunk.usage.prompt_tokens
+                llm_output.usage.output = chunk.usage.completion_tokens
+                llm_output.usage.total_tokens = chunk.usage.total_tokens
                 break
 
         # 收尾必须给出终态事件，避免调用方拿到的最后一个事件是 text_delta
@@ -150,20 +149,25 @@ class OpenAIModel(LLMModel):
     def _chunk_events(
         self,
         llm_output: AssistantMessage,
-        delta: Delta | None,
+        delta: ChoiceDelta | None,
         thinking_block: ThinkingContent | None,
         text_block: TextContent | None,
         tool_call_block: ToolCall | None,
         finish_reason: FinishReason | None,
-    ) -> ChunkResult:
+    ) -> tuple[
+        list[AssistantMessageEvent],
+        ThinkingContent | None,
+        TextContent | None,
+        ToolCall | None,
+    ]:
         """把一个 chunk 转成零到多个事件，并返回更新后的 block 状态"""
         events: list[AssistantMessageEvent] = []
 
         if delta is None:
             return events, thinking_block, text_block, tool_call_block
 
-        # reasoning_content 字段是否存在
-        reasoning_content = _field(delta, "reasoning_content")
+        # reasoning_content 是供应商扩展字段，运行时可能不存在
+        reasoning_content = _as_vendor_delta(delta).reasoning_content
         if reasoning_content:
             if thinking_block is None:
                 thinking_block = ThinkingContent(thinking="")
@@ -178,7 +182,7 @@ class OpenAIModel(LLMModel):
             thinking_block = None
 
         # content 字段是否存在
-        text_content = _field(delta, "content")
+        text_content = delta.content
         if text_content:
             if text_block is None:
                 text_block = TextContent(text="")
@@ -189,25 +193,23 @@ class OpenAIModel(LLMModel):
             events.append(TextDeltaEvent(delta=text_content, portion=llm_output))
 
         # tool_calls 字段是否存在
-        tool_calls = _field(delta, "tool_calls")
-        if tool_calls:
-            # tool_calls 存在时，表明 text content 内容已经生成完毕，此处应该返回 text_end 事件
+        if delta.tool_calls:
+            # tool_calls 存在时，表明 text content 内容已经生成完毕
             if text_content is None and text_block is not None:
                 events.append(TextEndEvent(content=text_block.text, portion=llm_output))
                 text_block = None
 
-            first_call = tool_calls[0]
-            call_function = _field(first_call, "function")
+            first_call = delta.tool_calls[0]
             if tool_call_block is None:
                 tool_call_block = ToolCall(
-                    id=_field(first_call, "id", ""),
-                    name=_field(call_function, "name", ""),
+                    id=first_call.id or "",
+                    name=_function_name(first_call),
                     arguments="",
                 )
                 llm_output.content.append(tool_call_block)
                 events.append(ToolCallStartEvent(portion=llm_output))
 
-            argument_delta = _field(call_function, "arguments", "")
+            argument_delta = _function_arguments(first_call)
             tool_call_block.arguments += argument_delta
             events.append(ToolCallDeltaEvent(delta=argument_delta, portion=llm_output))
 
@@ -221,3 +223,27 @@ class OpenAIModel(LLMModel):
             tool_call_block = None
 
         return events, thinking_block, text_block, tool_call_block
+
+
+def _function_name(tool_call: ChoiceDeltaToolCall) -> str:
+    if tool_call.function is None or tool_call.function.name is None:
+        return ""
+    return tool_call.function.name
+
+
+def _function_arguments(tool_call: ChoiceDeltaToolCall) -> str:
+    if tool_call.function is None or tool_call.function.arguments is None:
+        return ""
+    return tool_call.function.arguments
+
+
+def _parse_finish_reason(choice: Choice | None) -> FinishReason | None:
+    """把 SDK 的 finish_reason 收窄到项目自己的 FinishReason。
+
+    SDK 声明为 Literal["stop", "length", "tool_calls", "content_filter",
+    "function_call"]，其中 function_call 是已废弃的旧协议，不纳入支持范围。
+    """
+    reason = choice.finish_reason if choice is not None else None
+    if reason in ("stop", "length", "tool_calls", "content_filter"):
+        return reason
+    return None

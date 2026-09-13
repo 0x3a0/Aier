@@ -5,14 +5,7 @@
   "venv": ".venv",
   "pythonVersion": "3.13",
   "extraPaths": ["src"],
-  "typeCheckingMode": "recommended",
-
-  "reportMissingTypeArgument": "error",
-  "reportUnknownParameterType": "error",
-  "reportUnknownVariableType": "error",
-  "reportUnknownMemberType": "error",
-  "reportUnknownArgumentType": "error",
-
+  "typeCheckingMode": "all",
   "reportAny": "none",
   "reportExplicitAny": "none"
 }
