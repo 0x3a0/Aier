@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Iterator
+from collections.abc import Iterator
+from typing import Any
 
-from ..types import AssistantMessageEvent, Context
 from ..tool import Tool
+from ..types import AssistantMessageEvent, Context
 
 
 class LLMModel(ABC):
@@ -10,15 +11,10 @@ class LLMModel(ABC):
 
     @abstractmethod
     def stream_invoke(
-        self,
-        context: Context,
-        **kwargs
+        self, context: Context, **kwargs: dict[str, Any]
     ) -> Iterator[AssistantMessageEvent]:
         """流式输出"""
 
     @abstractmethod
-    def _convert_tools(
-        self,
-        tools: list[Tool]
-    ) -> list[dict]:
+    def _convert_tools(self, tools: list[Tool]) -> list[dict]:
         """将 Tool 转换为当前 provider 的 function-calling schema"""

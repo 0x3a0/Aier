@@ -19,4 +19,46 @@ packages = ["src/aier"]
 [dependency-groups]
 dev = [
     "python-dotenv>=1.2.2",
+    "pytest>=8.4.2",
+    "ruff>=0.16.7",
 ]
+
+[tool.ruff]
+# 与 `requires-python` 保持一致，避免 Ruff 的自动推断随环境变化
+target-version = "py313"
+line-length = 100
+src = ["src", "examples", "tests"]
+
+[tool.ruff.lint]
+# 显式固定规则集：不依赖 Ruff 各版本的默认值，升级时不会突然冒出新告警
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PIE",  # flake8-pie
+    "RET",  # flake8-return
+    "PTH",  # flake8-use-pathlib
+    "RUF",  # Ruff 自身规则
+]
+# 本项目注释与文档字符串使用中文，全角标点是刻意为之，不属于「易混字符」
+ignore = [
+    "RUF001",  # ambiguous-unicode-character-string
+    "RUF002",  # ambiguous-unicode-character-docstring
+    "RUF003",  # ambiguous-unicode-character-comment
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aier"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

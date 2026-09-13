@@ -1,7 +1,11 @@
 __pycache__
 .venv
-.vscode
+.vscode/*
 test/
+
+# 工具缓存
+.ruff_cache/
+.pytest_cache/
 
 .env
 AGENTS.md

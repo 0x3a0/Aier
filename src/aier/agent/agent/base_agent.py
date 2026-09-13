@@ -4,10 +4,8 @@ from abc import ABC, abstractmethod
 class BaseAgent(ABC):
     @abstractmethod
     def _execute_tool(self, tool_call_buffer: dict[str, str]) -> str:
-        """ 执行工具调用 """
-        pass
-    
+        """执行工具调用"""
+
     @abstractmethod
     def run(self, input: str) -> str:
-        """ 启动agent """
-        pass
+        """启动agent"""

@@ -1,6 +1,3 @@
 from .short_term import ShortTermMemory
 
-
-__all__ = [
-    "ShortTermMemory"
-]
+__all__ = ["ShortTermMemory"]
