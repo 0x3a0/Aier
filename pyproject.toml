@@ -1,7 +1,7 @@
 [project]
 name = "aier"
 version = "0.1.0"
-description = "Aier agent framework"
+description = "Aier mini-agent framework"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

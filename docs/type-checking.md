@@ -28,7 +28,7 @@
 
 ## 唯一的例外：关闭 reportAny / reportExplicitAny
 
-理由是本框架的设计约束 **D4：供应商调用透传 `**kwargs`**。底层 SDK 的参数
+理由是本框架[技术路线图](ROADMAP.md#3-设计约束)的设计约束 **D4：保留供应商参数透传**。底层 SDK 的参数
 （`temperature`、`extra_body`、供应商私有字段……）无法在本框架内穷举，
 `Any` 是这里的正确类型而非疏漏。
 

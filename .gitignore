@@ -10,4 +10,21 @@ test/
 .pytest_cache/
 
 .env
+.env.*
+!.env.example
+
+# 本地凭据与私钥
+credentials.json
+credentials.*.json
+secrets.json
+secrets.*.json
+.secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# 原始运行轨迹与私有任务数据
+runtime-data/
+private-data/
 AGENTS.md
