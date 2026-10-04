@@ -4,6 +4,8 @@ Aier mini-agent framework 的模型适配层，定义模型接口、消息、上
 
 `Context` 保存当前传入的消息，不会自动持久化对话或执行工具。Agent 循环、工具结果回填和记忆策略由 `aier.agent` 后续实现。参见[项目说明](../../../README.md)与[技术路线图](../../../docs/ROADMAP.md)。
 
+模型层负责一次调用的协议转换与响应解析；Agent 层负责多步任务执行。工具、上下文和记忆的具体归属见[模块职责与边界](../../../docs/MODULE_BOUNDARIES.md)。
+
 ## 快速入门
 
 ```python

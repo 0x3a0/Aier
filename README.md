@@ -46,6 +46,7 @@ API 密钥、私有配置、运行轨迹与真实业务数据不纳入版本控�
 
 ## 文档
 
+- [模块职责与边界](docs/MODULE_BOUNDARIES.md)：`aier.ai` 与 `aier.agent` 的功能归属、工具交互、上下文和记忆边界。
 - [Agent 学习与研究路线整理](docs/AGENT_LEARNING_PATH.md)：原对话的主线、阶段目标、研究方向与项目集关系。
 - [Aier 技术发展路线图](docs/ROADMAP.md)：当前基线、实现优先级与各阶段验收标准。
 - [模型层使用说明](src/aier/ai/README.md)：当前可用 API 与流式事件。
